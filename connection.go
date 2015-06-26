@@ -21,27 +21,6 @@ func Connect(host string, username string, password string) *Connection {
 	return c
 }
 
-func (c *Connection) Counters() (map[string]string, error) {
-	counters := map[string]string{}
-
-	if data, err := c.execP4("-ztag", "counters"); err == nil {
-		var b bytes.Buffer
-		b.Write(data)
-
-		if zcounters, err := ParseZTag(&b); err == nil {
-			for _, zcounter := range zcounters {
-				counters[zcounter["counter"]] = zcounter["value"]
-			}
-
-			return counters, nil
-		} else {
-			return nil, err
-		}
-	} else {
-		return nil, err
-	}
-}
-
 func (c *Connection) execP4(args ...string) ([]byte, error) {
 	env := []string{
 		"HOME=" + os.Getenv("HOME"),
