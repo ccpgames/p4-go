@@ -46,3 +46,10 @@ func TestMultipleEntries(t *testing.T) {
 		map[string]string{"d": "e"},
 	})
 }
+
+func TestMultilineEntry(t *testing.T) {
+	testZTag(t, []byte("... key val\nue\n\n... 2nd 3rd\n"), []map[string]string{
+		map[string]string{"key": "val\nue"},
+		map[string]string{"2nd": "3rd"},
+	})
+}
