@@ -1,9 +1,25 @@
 package p4
 
 import (
-	"bytes"
+	"fmt"
+	"regexp"
 	"strconv"
 )
+
+type Describe struct {
+	Change      int
+	User        string
+	Client      string
+	Time        string
+	Description string
+	Status      string
+	Files       []DescribeFile
+}
+
+type DescribeFile struct {
+	Path   string
+	Action string
+}
 
 type Review struct {
 	Change int
@@ -12,56 +28,90 @@ type Review struct {
 	Name   string
 }
 
+var countersRegexp = regexp.MustCompile("(?m)^(.+) = (.+)$")
+var describeRegexp = regexp.MustCompile("\\AChange (\\d+) by (.+)@(.+) on (.+)((?: *pending*)?)\n\n((?:\t.*\n)*)\nAffected files ...\n\n((?:... (?:.+) (?:[\\w/]+)\n)*)\n\\z")
+var describeAffectedRegexp = regexp.MustCompile("(?m)^... (.+) ([\\w/]+)$")
+var reviewRegexp = regexp.MustCompile("(?m)^Change (\\d+) (.+) <(.+)> \\((.+)\\)$")
+
 func (c *Connection) Counters() (map[string]string, error) {
 	counters := map[string]string{}
 
-	if data, err := c.execP4("-ztag", "counters"); err == nil {
-		var b bytes.Buffer
-		b.Write(data)
+	if data, err := c.execP4("counters"); err == nil {
+		submatch := countersRegexp.FindAllSubmatch(data, 1000000)
 
-		if zcounters, err := ParseZTag(&b); err == nil {
-			for _, zcounter := range zcounters {
-				counters[zcounter["counter"]] = zcounter["value"]
-			}
-
-			return counters, nil
-		} else {
-			return nil, err
+		for _, counter := range submatch {
+			counters[string(counter[1])] = string(counter[2])
 		}
+
+		return counters, nil
 	} else {
 		return nil, err
+	}
+}
+
+func (c *Connection) Describe(change int) (Describe, error) {
+	var describe Describe
+
+	if data, err := c.execP4("describe", "-s", strconv.Itoa(change)); err == nil {
+		submatch := describeRegexp.FindSubmatch(data)
+		intChange, err := strconv.Atoi(string(submatch[1]))
+
+		if err != nil {
+			return describe, err
+		}
+
+		status := "submitted"
+
+		if string(submatch[5]) == " *pending" {
+			status = "pending"
+		}
+
+		describe = Describe{
+			Change:      intChange,
+			User:        string(submatch[2]),
+			Client:      string(submatch[3]),
+			Time:        string(submatch[4]),
+			Description: string(submatch[6]),
+			Status:      status,
+		}
+
+		affectedSubmatch := describeAffectedRegexp.FindAllSubmatch(submatch[7], 10000000)
+
+		for _, m := range affectedSubmatch {
+			describe.Files = append(describe.Files, DescribeFile{
+				Path:   string(m[1]),
+				Action: string(m[2]),
+			})
+		}
+
+		return describe, nil
+	} else {
+		return describe, err
 	}
 }
 
 func (c *Connection) ReviewByCounter(counter string) ([]Review, error) {
 	reviews := []Review{}
 
-	if data, err := c.execP4("-ztag", "review", "-t", counter); err == nil {
-		var b bytes.Buffer
-		b.Write(data)
+	if data, err := c.execP4("review", "-t", counter); err == nil {
+		submatch := reviewRegexp.FindAllSubmatch(data, 10000000)
 
-		if zreviews, err := ParseZTag(&b); err == nil {
-			for _, zreview := range zreviews {
-				intChange, err := strconv.Atoi(zreview["change"])
+		for _, review := range submatch {
+			intChange, err := strconv.Atoi(string(review[1]))
 
-				if err != nil {
-					return nil, err
-				}
-
-				review := Review{
-					Change: intChange,
-					User:   zreview["user"],
-					Email:  zreview["email"],
-					Name:   zreview["name"],
-				}
-
-				reviews = append(reviews, review)
+			if err != nil {
+				return nil, err
 			}
 
-			return reviews, nil
-		} else {
-			return nil, err
+			reviews = append(reviews, Review{
+				Change: intChange,
+				User:   string(review[2]),
+				Email:  string(review[3]),
+				Name:   string(review[4]),
+			})
 		}
+
+		return reviews, nil
 	} else {
 		return nil, err
 	}
