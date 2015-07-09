@@ -10,13 +10,15 @@ type Connection struct {
 	host     string
 	username string
 	password string
+	client   string
 }
 
-func Connect(host string, username string, password string) *Connection {
+func Connect(host string, username string, password string, client string) *Connection {
 	c := new(Connection)
 	c.host = host
 	c.username = username
 	c.password = password
+	c.client = client
 
 	return c
 }
@@ -24,6 +26,7 @@ func Connect(host string, username string, password string) *Connection {
 func (c *Connection) execP4(args ...string) ([]byte, error) {
 	env := []string{
 		"HOME=" + os.Getenv("HOME"),
+		"P4CLIENT=" + c.client,
 		"P4HOST=" + c.host,
 		"P4USER=" + c.username,
 	}
