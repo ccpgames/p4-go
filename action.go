@@ -116,3 +116,12 @@ func (c *Connection) ReviewByCounter(counter string) ([]Review, error) {
 		return nil, err
 	}
 }
+
+func (c *Connection) Sync(path string, clNumber int) error {
+	// at this point, we don't care about the command's output
+	if _, err := c.execP4("sync", "-s", fmt.Sprintf("%s@%d", path, clNumber)); err == nil {
+		return nil
+	} else {
+		return err
+	}
+}
