@@ -117,6 +117,14 @@ func (c *Connection) ReviewByCounter(counter string) ([]Review, error) {
 	}
 }
 
+func (c *Connection) SetCounter(counter string, value string) error {
+	if _, err := c.execP4("counter", "-f", counter, value); err == nil {
+		return nil
+	} else {
+		return err
+	}
+}
+
 func (c *Connection) Sync(path string, clNumber int) error {
 	if _, err := c.execP4("sync", "-s", fmt.Sprintf("%s@%d", path, clNumber)); err == nil {
 		return nil
