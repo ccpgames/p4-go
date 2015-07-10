@@ -38,12 +38,12 @@ func (c *Connection) execP4(args ...string) ([]byte, error) {
 	cmd.Env = env
 	cmd.Stdin = &b
 
-	if err := cmd.Run(); err == nil {
+	if data, err := cmd.CombinedOutput(); err == nil {
 		cmd := exec.Command("p4", args...)
 		cmd.Env = env
 
 		return cmd.CombinedOutput()
 	} else {
-		return nil, err
+		return data, err
 	}
 }
