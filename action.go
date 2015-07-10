@@ -45,7 +45,7 @@ func (c *Connection) Counters() (map[string]string, error) {
 
 		return counters, nil
 	} else {
-		return nil, P4Error{err, data}
+		return nil, err
 	}
 }
 
@@ -86,7 +86,7 @@ func (c *Connection) Describe(change int) (Describe, error) {
 
 		return describe, nil
 	} else {
-		return describe, P4Error{err, data}
+		return describe, err
 	}
 }
 
@@ -113,14 +113,14 @@ func (c *Connection) ReviewByCounter(counter string) ([]Review, error) {
 
 		return reviews, nil
 	} else {
-		return nil, P4Error{err, data}
+		return nil, err
 	}
 }
 
 func (c *Connection) Sync(path string, clNumber int) error {
-	if data, err := c.execP4("sync", "-s", fmt.Sprintf("%s@%d", path, clNumber)); err == nil {
+	if _, err := c.execP4("sync", "-s", fmt.Sprintf("%s@%d", path, clNumber)); err == nil {
 		return nil
 	} else {
-		return P4Error{err, data}
+		return err
 	}
 }

@@ -42,8 +42,12 @@ func (c *Connection) execP4(args ...string) ([]byte, error) {
 		cmd := exec.Command("p4", args...)
 		cmd.Env = env
 
-		return cmd.CombinedOutput()
+		if data, err := cmd.CombinedOutput(); err == nil {
+			return data, nil
+		} else {
+			return nil, P4Error{err, append([]string{"p4"}, args...), data}
+		}
 	} else {
-		return data, err
+		return nil, P4Error{err, []string{"p4", "login"}, data}
 	}
 }

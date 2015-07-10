@@ -6,10 +6,16 @@ import (
 )
 
 type P4Error struct {
-	Status error
-	Output []byte
+	Status    error
+	Arguments []string
+	Output    []byte
 }
 
 func (err P4Error) Error() string {
-	return fmt.Sprintf("%s: %s", err.Status, string(bytes.TrimRight(err.Output, "\n")))
+	return fmt.Sprintf(
+		"%s (%s): %s",
+		err.Status,
+		err.Arguments,
+		string(bytes.TrimRight(err.Output, "\n")),
+	)
 }
