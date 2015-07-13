@@ -118,7 +118,7 @@ func (c *Connection) ReviewByCounter(counter string) ([]Review, error) {
 }
 
 func (c *Connection) SetCounter(counter string, value string) error {
-	if _, err := c.execP4("counter", "-f", counter, value); err == nil {
+	if _, err := c.execP4("counter", counter, value); err == nil {
 		return nil
 	} else {
 		return err
