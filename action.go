@@ -17,8 +17,9 @@ type Describe struct {
 }
 
 type DescribeFile struct {
-	Path   string
-	Action string
+	Path    string
+	Version int
+	Action  string
 }
 
 type Review struct {
@@ -30,7 +31,7 @@ type Review struct {
 
 var countersRegexp = regexp.MustCompile("(?m)^(.+) = (.+)$")
 var describeRegexp = regexp.MustCompile("\\AChange (\\d+) by (.+)@(.+) on (.+)((?: *pending*)?)\n\n((?:\t.*\n)*)\nAffected files ...\n\n((?:... (?:.+) (?:[\\w/]+)\n)*)\n\\z")
-var describeAffectedRegexp = regexp.MustCompile("(?m)^... (.+) ([\\w/]+)$")
+var describeAffectedRegexp = regexp.MustCompile("(?m)^... (.+)#(\\d+) ([\\w/]+)$")
 var reviewRegexp = regexp.MustCompile("(?m)^Change (\\d+) (.+) <(.+)> \\((.+)\\)$")
 
 func (c *Connection) Counters() (map[string]string, error) {
@@ -78,9 +79,16 @@ func (c *Connection) Describe(change int) (Describe, error) {
 		affectedSubmatch := describeAffectedRegexp.FindAllSubmatch(submatch[7], 10000000)
 
 		for _, m := range affectedSubmatch {
+			intVersion, err := strconv.Atoi(string(m[2]))
+
+			if err != nil {
+				return describe, err
+			}
+
 			describe.Files = append(describe.Files, DescribeFile{
-				Path:   string(m[1]),
-				Action: string(m[2]),
+				Path:    string(m[1]),
+				Version: intVersion,
+				Action:  string(m[3]),
 			})
 		}
 
