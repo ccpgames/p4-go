@@ -134,7 +134,7 @@ func (c *Connection) SetCounter(counter string, value string) error {
 }
 
 func (c *Connection) Sync(path string, clNumber int) error {
-	if _, err := c.execP4("sync", fmt.Sprintf("%s@%d", path, clNumber)); err == nil {
+	if _, err := c.execP4("sync", "-f", fmt.Sprintf("%s@%d", path, clNumber)); err == nil {
 		return nil
 	} else {
 		return err
