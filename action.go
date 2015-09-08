@@ -1,6 +1,7 @@
 package p4
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -29,9 +30,12 @@ type Review struct {
 	Name   string
 }
 
+var newlineRegexp = regexp.MustCompile("\r\n|\r|\n")
+
 var countersRegexp = regexp.MustCompile("(?m)^(.+) = (.+)$")
 var describeRegexp = regexp.MustCompile("\\AChange (\\d+) by (.+)@(.+) on (.+)((?: *pending*)?)\n\n((?:\t.*\n)*)\nAffected files ...\n\n((?:... (?:.+) (?:[\\w/]+)\n)*)\n\\z")
 var describeAffectedRegexp = regexp.MustCompile("(?m)^... (.+)#(\\d+) ([\\w/]+)$")
+var printRegexp = regexp.MustCompile("(?m)\\A(.+)(@|#)(\\d+)(?: - | )(.+)$")
 var reviewRegexp = regexp.MustCompile("(?m)^Change (\\d+) (.+) <(.+)> \\((.+)\\)$")
 
 func (c *Connection) Counters() (map[string]string, error) {
@@ -95,6 +99,55 @@ func (c *Connection) Describe(change int) (Describe, error) {
 		return describe, nil
 	} else {
 		return describe, err
+	}
+}
+
+func (c *Connection) Print(path string, clNumber int) ([]byte, error) {
+	// We can not use p4's -q flag here, as that leaves us with no method of
+	// distinguishing an actual error from a file happens to contain an error
+	// message. The process exits with a status code of 0 in both cases.
+	//
+	// The first line of output differs slightly between a successful request
+	// and an error:
+	//
+	//  * On error, the line begins with the path followed by `@` and the
+	//    changelist number.
+	//  * On success, the line begins with the path followed by `#` and the
+	//    file revision.
+	//
+	// Another limitation of p4's print is automatic line-ending conversions
+	// on text files. This can not be disabled. It also can not be determined
+	// if the file is treated as text or binary by Perforce.
+	//
+	// No attempt is made to correct this anomaly. Whatever p4 gives us, we
+	// give you.
+
+	url := fmt.Sprintf("%s@%d", path, clNumber)
+
+	if data, err := c.execP4("print", url); err == nil {
+		lines := newlineRegexp.Split(string(data), 2)
+
+		if len(lines) != 2 {
+			return nil, errors.New("no newlines found in p4's output")
+		}
+
+		submatch := printRegexp.FindSubmatch([]byte(lines[0]))
+
+		if len(submatch) == 0 {
+			return nil, errors.New("first line from p4 print of invalid format")
+		}
+
+		if submatch[2][0] != '#' {
+			return nil, P4Error{
+				errors.New(string(submatch[4])),
+				[]string{"p4", "print", url},
+				data,
+			}
+		}
+
+		return []byte(lines[1]), nil
+	} else {
+		return nil, err
 	}
 }
 
