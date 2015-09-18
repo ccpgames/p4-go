@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
+	"regexp"
 )
+
+var tokenRegexp = regexp.MustCompile("([0-9A-Z]{32})")
 
 type Connection struct {
 	port     string
@@ -31,14 +34,21 @@ func (c *Connection) execP4(args ...string) ([]byte, error) {
 		"P4USER=" + c.username,
 	}
 
-	var b bytes.Buffer
-	b.Write([]byte(c.password))
+	var password bytes.Buffer
+	var token bytes.Buffer
+	var errors bytes.Buffer
 
-	cmd := exec.Command("p4", "login")
+	password.Write([]byte(c.password))
+
+	cmd := exec.Command("p4", "login", "-p")
 	cmd.Env = env
-	cmd.Stdin = &b
+	cmd.Stdin = &password
+	cmd.Stdout = &token
+	cmd.Stderr = &errors
 
-	if data, err := cmd.CombinedOutput(); err == nil {
+	if err := cmd.Run(); err == nil {
+		env = append(env, "P4PASSWD="+tokenRegexp.FindString(token.String()))
+
 		cmd := exec.Command("p4", args...)
 		cmd.Env = env
 
@@ -48,6 +58,6 @@ func (c *Connection) execP4(args ...string) ([]byte, error) {
 			return nil, P4Error{err, append([]string{"p4"}, args...), data}
 		}
 	} else {
-		return nil, P4Error{err, []string{"p4", "login"}, data}
+		return nil, P4Error{err, []string{"p4", "login"}, errors.Bytes()}
 	}
 }
