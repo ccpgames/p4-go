@@ -151,10 +151,18 @@ func (c *Connection) Print(path string, clNumber int) ([]byte, error) {
 	}
 }
 
+func (c *Connection) ReviewByChangelist(clNumber int) ([]Review, error) {
+	return c.review("review", "-c", strconv.Itoa(clNumber))
+}
+
 func (c *Connection) ReviewByCounter(counter string) ([]Review, error) {
+	return c.review("review", "-t", counter)
+}
+
+func (c *Connection) review(arguments ...string) ([]Review, error) {
 	reviews := []Review{}
 
-	if data, err := c.execP4("review", "-t", counter); err == nil {
+	if data, err := c.execP4(arguments...); err == nil {
 		submatch := reviewRegexp.FindAllSubmatch(data, 10000000)
 
 		for _, review := range submatch {
