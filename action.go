@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 type Describe struct {
@@ -99,6 +100,14 @@ func (c *Connection) Describe(change int) (Describe, error) {
 		return describe, nil
 	} else {
 		return describe, err
+	}
+}
+
+func (c *Connection) GetCounter(counter string) (string, error) {
+	if data, err := c.execP4("counter", counter); err == nil {
+		return strings.TrimRight(string(data), "\n"), nil
+	} else {
+		return "", err
 	}
 }
 
