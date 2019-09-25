@@ -31,6 +31,12 @@ type Review struct {
 	Name   string
 }
 
+type User struct {
+	User     string
+	Email    string
+	FullName string
+}
+
 var newlineRegexp = regexp.MustCompile("\r\n|\r|\n")
 
 var countersRegexp = regexp.MustCompile("(?m)^(.+) = (.+)$")
@@ -100,6 +106,22 @@ func (c *Connection) Describe(change int) (Describe, error) {
 		return describe, nil
 	} else {
 		return describe, err
+	}
+}
+
+var emailRegex = regexp.MustCompile(`(?m)^Email:\s+(.*)$`)
+var fullNameRegex = regexp.MustCompile(`(?m)^FullName:\s+(.*)$`)
+
+func (c *Connection) User(username string) (User, error) {
+	if data, err := c.execP4("user", "-o", username); err == nil {
+		user := User{
+			User:     username,
+			Email:    string(emailRegex.FindSubmatch(data)[1]),
+			FullName: string(fullNameRegex.FindSubmatch(data)[1]),
+		}
+		return user, nil
+	} else {
+		return User{}, err
 	}
 }
 
