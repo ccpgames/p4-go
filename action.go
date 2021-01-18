@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Describe struct {
@@ -16,6 +17,14 @@ type Describe struct {
 	Description string
 	Status      string
 	Files       []DescribeFile
+}
+
+type ChangeList struct {
+	Change      int
+	Date        time.Time
+	User        string
+	Client      string
+	Description string
 }
 
 type DescribeFile struct {
@@ -42,6 +51,7 @@ var newlineRegexp = regexp.MustCompile("\r\n|\r|\n")
 var countersRegexp = regexp.MustCompile("(?m)^(.+) = (.+)$")
 var describeRegexp = regexp.MustCompile("\\AChange (\\d+) by (.+)@(.+) on (.+)((?: *pending*)?)\n\n((?:\t.*\n)*)\nAffected files ...\n\n((?:... (?:.+) (?:[\\w/]+)\n)*)\n\\z")
 var describeAffectedRegexp = regexp.MustCompile("(?m)^... (.+)#(\\d+) ([\\w/]+)$")
+var getAllChangelistsRegexp = regexp.MustCompile("(?m)^Change (\\d+) on (.+) by (.+)@(.+) \\'(.*?)'\n")
 var printRegexp = regexp.MustCompile("(?m)\\A(.+)(@|#)(\\d+)(?: - | )(.+)$")
 var reviewRegexp = regexp.MustCompile("(?m)^Change (\\d+) (.+) <(.+)> \\((.+)\\)$")
 
@@ -180,6 +190,46 @@ func (c *Connection) Print(path string, clNumber int) ([]byte, error) {
 	} else {
 		return nil, err
 	}
+}
+
+// Get changelists starting from n-th changelist and return a ChangeList slice.
+func (c *Connection) GetAllChangelists(depot string, changeFrom int) ([]ChangeList, error) {
+	changelists := []ChangeList{}
+	if data, err := c.execP4("changes", "-e", strconv.Itoa(changeFrom), depot); err == nil {
+		// Might want to limit this later on for mem safety
+		submatch := getAllChangelistsRegexp.FindAllSubmatch(data, -1)
+		for _, changelist := range submatch {
+			intChange, err := strconv.Atoi(string(changelist[1]))
+			if err != nil {
+				return nil, err
+			}
+			dateChange, err := time.Parse("2006/01/02", string(changelist[2]))
+			if err != nil {
+				return nil, err
+			}
+			changelists = append(changelists, ChangeList{
+				Change:      intChange,
+				Date:        dateChange,
+				User:        string(changelist[3]),
+				Client:      string(changelist[4]),
+				Description: string(changelist[5]),
+			})
+		}
+		return changelists, nil
+	} else {
+		return nil, err
+	}
+}
+
+// Return all CL's between two CL's from a slice of CL's.
+func (c *Connection) GetChangelistsDelta(clFrom int, clTo int, changelist []ChangeList) ([]ChangeList, error) {
+	delta := []ChangeList{}
+	for _, change := range changelist {
+		if change.Change > clFrom && change.Change < clTo {
+			delta = append(delta, change)
+		}
+	}
+	return delta, nil
 }
 
 func (c *Connection) ReviewByChangelist(clNumber int) ([]Review, error) {
