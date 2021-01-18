@@ -192,7 +192,7 @@ func (c *Connection) Print(path string, clNumber int) ([]byte, error) {
 	}
 }
 
-// Get changelists starting from n-th changelist and return a ChangeList slice.
+// GetAllChangelists gets changelists starting from n-th changelist and return a ChangeList slice.
 func (c *Connection) GetAllChangelists(depot string, changeFrom int) ([]ChangeList, error) {
 	changelists := []ChangeList{}
 	if data, err := c.execP4("changes", "-e", strconv.Itoa(changeFrom), depot); err == nil {
@@ -221,7 +221,7 @@ func (c *Connection) GetAllChangelists(depot string, changeFrom int) ([]ChangeLi
 	}
 }
 
-// Return all CL's between two CL's from a slice of CL's.
+// GetChangelistsDelta Returns all CL's between two CL's from a slice of CL's.
 func (c *Connection) GetChangelistsDelta(clFrom int, clTo int, changelist []ChangeList) ([]ChangeList, error) {
 	delta := []ChangeList{}
 	for _, change := range changelist {

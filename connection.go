@@ -10,15 +10,15 @@ import (
 var tokenRegexp = regexp.MustCompile("([0-9A-Z]{32})")
 
 type Connection struct {
-	host     string
+	port     string
 	username string
 	password string
 	client   string
 }
 
-func Connect(host string, username string, password string, client string) *Connection {
+func Connect(port string, username string, password string, client string) *Connection {
 	c := new(Connection)
-	c.host = host
+	c.port = port
 	c.username = username
 	c.password = password
 	c.client = client
@@ -29,7 +29,7 @@ func Connect(host string, username string, password string, client string) *Conn
 func (c *Connection) execP4(args ...string) ([]byte, error) {
 	env := []string{
 		"HOME=" + os.Getenv("HOME"),
-		"P4HOST=" + c.host,
+		"P4PORT=" + c.port,
 		"P4CLIENT=" + c.client,
 		"P4USER=" + c.username,
 	}
@@ -40,7 +40,7 @@ func (c *Connection) execP4(args ...string) ([]byte, error) {
 
 	password.Write([]byte(c.password))
 
-	cmd := exec.Command("p4", "login")
+	cmd := exec.Command("p4", "login", "-p")
 	cmd.Env = env
 	cmd.Stdin = &password
 	cmd.Stdout = &token
