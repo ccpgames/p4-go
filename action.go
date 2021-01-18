@@ -201,10 +201,12 @@ func (c *Connection) GetAllChangelists(depot string, changeFrom int) ([]ChangeLi
 		for _, changelist := range submatch {
 			intChange, err := strconv.Atoi(string(changelist[1]))
 			if err != nil {
+				fmt.Printf("Failed to parse int from string:'%s'", string(changelist[1]))
 				return nil, err
 			}
 			dateChange, err := time.Parse("2006/01/02", string(changelist[2]))
 			if err != nil {
+				fmt.Printf("Failed to parse date from string:'%s'", string(changelist[2]))
 				return nil, err
 			}
 			changelists = append(changelists, ChangeList{
