@@ -29,8 +29,8 @@ func Connect(port string, username string, password string, client string) *Conn
 func (c *Connection) execP4(args ...string) ([]byte, error) {
 	env := []string{
 		"HOME=" + os.Getenv("HOME"),
-		"P4PORT=" + c.port,
 		"P4CLIENT=" + c.client,
+		"P4PORT=" + c.port,
 		"P4USER=" + c.username,
 	}
 
