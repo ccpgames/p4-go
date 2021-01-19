@@ -54,6 +54,7 @@ var describeAffectedRegexp = regexp.MustCompile("(?m)^... (.+)#(\\d+) ([\\w/]+)$
 var getAllChangelistsRegexp = regexp.MustCompile("(?m)^Change (\\d+) on (.+) by (.+)@(.+) \\'(.*?)'\n")
 var printRegexp = regexp.MustCompile("(?m)\\A(.+)(@|#)(\\d+)(?: - | )(.+)$")
 var reviewRegexp = regexp.MustCompile("(?m)^Change (\\d+) (.+) <(.+)> \\((.+)\\)$")
+var fileRegexp = regexp.MustCompile("(?m)^(.+)[#](\\d+) - edit change (\\d+) \\((text)\\)$")
 
 func (c *Connection) Counters() (map[string]string, error) {
 	counters := map[string]string{}
@@ -187,6 +188,21 @@ func (c *Connection) Print(path string, clNumber int) ([]byte, error) {
 		}
 
 		return []byte(lines[1]), nil
+	} else {
+		return nil, err
+	}
+}
+
+// Files gets filepaths of changes in CL
+func (c *Connection) Files(clNumber int) ([]string, error) {
+	var filePaths []string
+	option := "@=" + strconv.Itoa(clNumber)
+	if data, err := c.execP4("files", option); err == nil {
+		submatch := fileRegexp.FindAllSubmatch(data, -1)
+		for _, filePath := range submatch {
+			filePaths = append(filePaths, string(filePath[1]))
+		}
+		return filePaths, nil
 	} else {
 		return nil, err
 	}
