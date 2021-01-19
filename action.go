@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Describe struct {
@@ -16,6 +17,14 @@ type Describe struct {
 	Description string
 	Status      string
 	Files       []DescribeFile
+}
+
+type ChangeList struct {
+	Change      int
+	Date        time.Time
+	User        string
+	Client      string
+	Description string
 }
 
 type DescribeFile struct {
@@ -42,8 +51,10 @@ var newlineRegexp = regexp.MustCompile("\r\n|\r|\n")
 var countersRegexp = regexp.MustCompile("(?m)^(.+) = (.+)$")
 var describeRegexp = regexp.MustCompile("\\AChange (\\d+) by (.+)@(.+) on (.+)((?: *pending*)?)\n\n((?:\t.*\n)*)\nAffected files ...\n\n((?:... (?:.+) (?:[\\w/]+)\n)*)\n\\z")
 var describeAffectedRegexp = regexp.MustCompile("(?m)^... (.+)#(\\d+) ([\\w/]+)$")
+var getAllChangelistsRegexp = regexp.MustCompile("(?m)^Change (\\d+) on (.+) by (.+)@(.+) \\'(.*?)'\n")
 var printRegexp = regexp.MustCompile("(?m)\\A(.+)(@|#)(\\d+)(?: - | )(.+)$")
 var reviewRegexp = regexp.MustCompile("(?m)^Change (\\d+) (.+) <(.+)> \\((.+)\\)$")
+var fileRegexp = regexp.MustCompile("(?m)^(.+)[#](\\d+) - edit change (\\d+) \\((text)\\)$")
 
 func (c *Connection) Counters() (map[string]string, error) {
 	counters := map[string]string{}
@@ -180,6 +191,63 @@ func (c *Connection) Print(path string, clNumber int) ([]byte, error) {
 	} else {
 		return nil, err
 	}
+}
+
+// Files gets filepaths of changes in CL
+func (c *Connection) Files(clNumber int) ([]string, error) {
+	var filePaths []string
+	option := "@=" + strconv.Itoa(clNumber)
+	if data, err := c.execP4("files", option); err == nil {
+		submatch := fileRegexp.FindAllSubmatch(data, -1)
+		for _, filePath := range submatch {
+			filePaths = append(filePaths, string(filePath[1]))
+		}
+		return filePaths, nil
+	} else {
+		return nil, err
+	}
+}
+
+// GetAllChangelists gets changelists starting from n-th changelist and return a ChangeList slice.
+func (c *Connection) GetAllChangelists(depot string, changeFrom int) ([]ChangeList, error) {
+	changelists := []ChangeList{}
+	if data, err := c.execP4("changes", "-e", strconv.Itoa(changeFrom), depot); err == nil {
+		// Might want to limit this later on for mem safety
+		submatch := getAllChangelistsRegexp.FindAllSubmatch(data, -1)
+		for _, changelist := range submatch {
+			intChange, err := strconv.Atoi(string(changelist[1]))
+			if err != nil {
+				fmt.Printf("Failed to parse int from string:'%s'", string(changelist[1]))
+				return nil, err
+			}
+			dateChange, err := time.Parse("2006/01/02", string(changelist[2]))
+			if err != nil {
+				fmt.Printf("Failed to parse date from string:'%s'", string(changelist[2]))
+				return nil, err
+			}
+			changelists = append(changelists, ChangeList{
+				Change:      intChange,
+				Date:        dateChange,
+				User:        string(changelist[3]),
+				Client:      string(changelist[4]),
+				Description: string(changelist[5]),
+			})
+		}
+		return changelists, nil
+	} else {
+		return nil, err
+	}
+}
+
+// GetChangelistsDelta Returns all CL's between two CL's from a slice of CL's.
+func (c *Connection) GetChangelistsDelta(clFrom int, clTo int, changelist []ChangeList) ([]ChangeList, error) {
+	delta := []ChangeList{}
+	for _, change := range changelist {
+		if change.Change > clFrom && change.Change < clTo {
+			delta = append(delta, change)
+		}
+	}
+	return delta, nil
 }
 
 func (c *Connection) ReviewByChangelist(clNumber int) ([]Review, error) {
